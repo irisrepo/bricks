@@ -56,6 +56,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Divider
 import androidx.compose.ui.text.style.TextAlign
 import com.sss.constructionroster.data.PaymentDataManager
+import com.sss.constructionroster.ui.theme.labelAmount
 
 
 class MainActivity : ComponentActivity() {
@@ -711,9 +712,9 @@ private fun DayCell(
             .clickable(onClick = onClick),
         colors = CardDefaults.cardColors(
             containerColor = when {
-                dayEntry?.isAbsent == true -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f)
-                dayEntry != null -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
-                else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                dayEntry?.isAbsent == true -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f)
+                dayEntry != null -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
             }
         ),
         shape = RoundedCornerShape(4.dp)
@@ -735,20 +736,21 @@ private fun DayCell(
                 ),
                 fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal
             )
+            
             if (dayEntry != null) {
                 if (dayEntry.isAbsent) {
                     Text(
-                        text = "Absent",
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 1,
-                        color = MaterialTheme.colorScheme.error
+                        text = "✕",
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.error
+                        )
                     )
                 } else if (dayEntry.amountPaid.isNotBlank()) {
                     Text(
                         text = "₹${dayEntry.amountPaid}",
-                        style = MaterialTheme.typography.labelSmall,
-                        maxLines = 1,
-                        color = MaterialTheme.colorScheme.primary
+                        style = MaterialTheme.typography.labelAmount,
+                        maxLines = 1
                     )
                 }
             }
@@ -966,25 +968,31 @@ fun DateDetailsScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Checkbox(
                 checked = isAbsent,
                 onCheckedChange = { isChecked -> 
                     isAbsent = isChecked
                     if (isChecked) {
-                        // Clear amount paid when marked as absent
                         amountPaid = ""
                     } else {
-                        // When unchecking absent, initialize with default amount per day
                         amountPaid = amountPerDay
                     }
                 }
             )
             Text(
                 text = "Absent",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(start = 8.dp)
+                style = MaterialTheme.typography.bodyLarge
+            )
+            Text(
+                text = "✕",
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    color = if (isAbsent) MaterialTheme.colorScheme.error else Color.Gray,
+                    fontWeight = FontWeight.Bold
+                ),
+                modifier = Modifier.padding(start = 4.dp)
             )
         }
 
