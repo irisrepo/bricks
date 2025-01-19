@@ -11,9 +11,9 @@ import androidx.compose.ui.graphics.Color
 val Typography = Typography(
     bodyLarge = TextStyle(
         fontFamily = FontFamily.Default,
-        fontWeight = FontWeight.Normal,
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
+        fontWeight = FontWeight.Medium,
+        fontSize = 15.sp,
+        lineHeight = 18.sp,
         letterSpacing = 0.5.sp
     )
 )
@@ -21,10 +21,10 @@ val Typography = Typography(
 // Define the labelAmount style as a separate constant
 val AmountTextStyle = TextStyle(
     fontFamily = FontFamily.Default,
-    fontWeight = FontWeight.Medium,
-    fontSize = 16.sp,
-    lineHeight = 24.sp,
-    letterSpacing = 0.5.sp,
+    fontWeight = FontWeight.W600,
+    fontSize = 10.sp,
+    lineHeight = 10.sp,
+    letterSpacing = 0.25.sp,
     color = Color(0xFF2196F3)
 )
 

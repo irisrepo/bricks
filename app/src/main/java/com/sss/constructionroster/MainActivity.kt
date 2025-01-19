@@ -73,6 +73,12 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.animation.core.*
+import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.text.style.TextOverflow
+import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
     private lateinit var paymentDataManager: PaymentDataManager
@@ -84,176 +90,194 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             ConstructionRosterTheme {
-                val context = LocalContext.current
-                var selectedImage by remember { mutableStateOf<ImageItem?>(null) }
-                var selectedMonthImage by remember {
-                    mutableStateOf(paymentDataManager.loadMonthImageSelection())
-                }
-                var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
-                var imageUri by remember { mutableStateOf<Uri?>(null) }
-                
-                // Move imageItems inside Composable scope
-                val imageItems = remember { 
-                    mutableStateListOf<ImageItem>().apply {
-                        addAll(paymentDataManager.loadCapturedImages())
-                    }
-                }
+                var showSplash by remember { mutableStateOf(true) }
+                var showMainScreen by remember { mutableStateOf(false) }
 
-                // Camera launcher
-                val cameraLauncher = rememberLauncherForActivityResult(
-                    ActivityResultContracts.TakePicture()
-                ) { success ->
-                    if (success && imageUri != null) {
-                        try {
-                            val newImage = ImageItem(
-                                imageRes = imageUri.hashCode(), // Use URI hashcode as imageRes
-                                title = "Profile ${sampleImages.size + imageItems.size + 1}",
-                                imageUri = imageUri
-                            )
-                            imageItems.add(newImage)
-                            paymentDataManager.saveCapturedImage(newImage) // Save the captured image
-                        } catch (e: Exception) {
-                            e.printStackTrace()
+                when {
+                    showSplash -> {
+                        SplashScreen(onSplashComplete = {
+                            showSplash = false
+                            showMainScreen = true
+                        })
+                    }
+                    showMainScreen -> {
+                        MainScreen(onNavigateToContent = {
+                            showMainScreen = false
+                        })
+                    }
+                    else -> {
+                        // Existing app content
+                        val context = LocalContext.current
+                        var selectedImage by remember { mutableStateOf<ImageItem?>(null) }
+                        var selectedMonthImage by remember {
+                            mutableStateOf(paymentDataManager.loadMonthImageSelection())
                         }
-                    }
-                }
+                        var selectedDate by remember { mutableStateOf<LocalDate?>(null) }
+                        var imageUri by remember { mutableStateOf<Uri?>(null) }
 
-                // Permission launcher
-                val cameraPermissionLauncher = rememberLauncherForActivityResult(
-                    ActivityResultContracts.RequestPermission()
-                ) { isGranted ->
-                    if (isGranted) {
-                        try {
-                            imageUri = createImageUri(context)
-                            cameraLauncher.launch(imageUri)
-                        } catch (e: Exception) {
-                            e.printStackTrace()
-                        }
-                    }
-                }
-
-                Scaffold(
-                    modifier = Modifier.fillMaxSize(),
-                    floatingActionButton = {
-                        if (selectedImage == null && selectedMonthImage == null && selectedDate == null) {
-                            FloatingActionButton(
-                                onClick = {
-                                    when (PackageManager.PERMISSION_GRANTED) {
-                                        ContextCompat.checkSelfPermission(
-                                            context,
-                                            Manifest.permission.CAMERA
-                                        ) -> {
-                                            imageUri = createImageUri(context)
-                                            cameraLauncher.launch(imageUri)
-                                        }
-                                        else -> {
-                                            cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
-                                        }
-                                    }
-                                },
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = "Add Profile"
-                                )
+                        // Move imageItems inside Composable scope
+                        val imageItems = remember {
+                            mutableStateListOf<ImageItem>().apply {
+                                addAll(paymentDataManager.loadCapturedImages())
                             }
                         }
-                    }
-                ) { innerPadding ->
-                    Column(
-                        modifier = Modifier
-                            .padding(innerPadding)
-                            .fillMaxSize()
-                    ) {
-                        when {
-                            selectedDate != null -> {
-                                DateDetailsScreen(
-                                    date = selectedDate!!,
-                                    amountPerDay = selectedMonthImage?.amountPerDay ?: "",
-                                    monthImage = selectedMonthImage!!,
-                                    onDismiss = {
-                                        selectedMonthImage?.let { paymentDataManager.saveMonthImageSelection(it) }
-                                        selectedDate = null
-                                    },
-                                    onSubmit = { dateDetails ->
-                                        selectedMonthImage = selectedMonthImage?.copy(
-                                            dayEntries = selectedMonthImage?.dayEntries?.apply {
-                                                if (dateDetails.isAbsent) {
-                                                    // If marked as absent, store with empty amount paid
-                                                    put(dateDetails.date.dayOfMonth, DayEntry(
-                                                        date = dateDetails.date,
-                                                        amountPaid = "",
-                                                        isAbsent = true
-                                                    ))
-                                                } else if (dateDetails.amountPaid.isNotBlank()) {
-                                                    // If amount paid is provided, store the entry
-                                                    put(dateDetails.date.dayOfMonth, DayEntry(
-                                                        date = dateDetails.date,
-                                                        amountPaid = dateDetails.amountPaid,
-                                                        isAbsent = false
-                                                    ))
-                                                } else {
-                                                    // If no amount and not absent, remove the entry
-                                                    remove(dateDetails.date.dayOfMonth)
+
+                        // Camera launcher
+                        val cameraLauncher = rememberLauncherForActivityResult(
+                            ActivityResultContracts.TakePicture()
+                        ) { success ->
+                            if (success && imageUri != null) {
+                                try {
+                                    val newImage = ImageItem(
+                                        imageRes = imageUri.hashCode(), // Use URI hashcode as imageRes
+                                        title = "Profile ${sampleImages.size + imageItems.size + 1}",
+                                        imageUri = imageUri
+                                    )
+                                    imageItems.add(newImage)
+                                    paymentDataManager.saveCapturedImage(newImage) // Save the captured image
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            }
+                        }
+
+                        // Permission launcher
+                        val cameraPermissionLauncher = rememberLauncherForActivityResult(
+                            ActivityResultContracts.RequestPermission()
+                        ) { isGranted ->
+                            if (isGranted) {
+                                try {
+                                    imageUri = createImageUri(context)
+                                    cameraLauncher.launch(imageUri)
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
+                            }
+                        }
+
+                        Scaffold(
+                            modifier = Modifier.fillMaxSize(),
+                            floatingActionButton = {
+                                if (selectedImage == null && selectedMonthImage == null && selectedDate == null) {
+                                    FloatingActionButton(
+                                        onClick = {
+                                            when (PackageManager.PERMISSION_GRANTED) {
+                                                ContextCompat.checkSelfPermission(
+                                                    context,
+                                                    Manifest.permission.CAMERA
+                                                ) -> {
+                                                    imageUri = createImageUri(context)
+                                                    cameraLauncher.launch(imageUri)
                                                 }
-                                            } ?: mutableMapOf()
+                                                else -> {
+                                                    cameraPermissionLauncher.launch(Manifest.permission.CAMERA)
+                                                }
+                                            }
+                                        },
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Default.Add,
+                                            contentDescription = "Add Profile"
                                         )
-                                        selectedMonthImage?.let { paymentDataManager.saveMonthImageSelection(it) }
-                                        selectedDate = null
                                     }
-                                )
+                                }
                             }
-                            selectedMonthImage != null -> {
-                                MonthImageScreen(
-                                    monthImage = selectedMonthImage!!,
-                                    onDismiss = {
-                                        selectedMonthImage?.let { paymentDataManager.saveMonthImageSelection(it) }
-                                        selectedMonthImage = null
-                                    },
-                                    onDateSelected = { date -> selectedDate = date },
-                                    onAmountPerDayChange = { amount ->
-                                        selectedMonthImage = selectedMonthImage?.copy(
-                                            amountPerDay = amount
+                        ) { innerPadding ->
+                            Column(
+                                modifier = Modifier
+                                    .padding(innerPadding)
+                                    .fillMaxSize()
+                            ) {
+                                when {
+                                    selectedDate != null -> {
+                                        DateDetailsScreen(
+                                            date = selectedDate!!,
+                                            amountPerDay = selectedMonthImage?.amountPerDay ?: "",
+                                            monthImage = selectedMonthImage!!,
+                                            onDismiss = {
+                                                selectedMonthImage?.let { paymentDataManager.saveMonthImageSelection(it) }
+                                                selectedDate = null
+                                            },
+                                            onSubmit = { dateDetails ->
+                                                selectedMonthImage = selectedMonthImage?.copy(
+                                                    dayEntries = selectedMonthImage?.dayEntries?.apply {
+                                                        if (dateDetails.isAbsent) {
+                                                            // If marked as absent, store with empty amount paid
+                                                            put(dateDetails.date.dayOfMonth, DayEntry(
+                                                                date = dateDetails.date,
+                                                                amountPaid = "",
+                                                                isAbsent = true
+                                                            ))
+                                                        } else if (dateDetails.amountPaid.isNotBlank()) {
+                                                            // If amount paid is provided, store the entry
+                                                            put(dateDetails.date.dayOfMonth, DayEntry(
+                                                                date = dateDetails.date,
+                                                                amountPaid = dateDetails.amountPaid,
+                                                                isAbsent = false
+                                                            ))
+                                                        } else {
+                                                            // If no amount and not absent, remove the entry
+                                                            remove(dateDetails.date.dayOfMonth)
+                                                        }
+                                                    } ?: mutableMapOf()
+                                                )
+                                                selectedMonthImage?.let { paymentDataManager.saveMonthImageSelection(it) }
+                                                selectedDate = null
+                                            }
                                         )
-                                        selectedMonthImage?.let { paymentDataManager.saveMonthImageSelection(it) }
                                     }
-                                )
-                            }
-                            selectedImage != null -> {
-                                MonthSelectionScreen(
-                                    imageItem = selectedImage!!,
-                                    onBack = { selectedImage = null },
-                                    onMonthSelected = { month ->
-                                        // Handle both captured and sample images
-                                        val existingMonthImage = paymentDataManager.loadMonthImageSelection(
-                                            selectedImage!!.imageRes,
-                                            month
+                                    selectedMonthImage != null -> {
+                                        MonthImageScreen(
+                                            monthImage = selectedMonthImage!!,
+                                            onDismiss = {
+                                                selectedMonthImage?.let { paymentDataManager.saveMonthImageSelection(it) }
+                                                selectedMonthImage = null
+                                            },
+                                            onDateSelected = { date -> selectedDate = date },
+                                            onAmountPerDayChange = { amount ->
+                                                selectedMonthImage = selectedMonthImage?.copy(
+                                                    amountPerDay = amount
+                                                )
+                                                selectedMonthImage?.let { paymentDataManager.saveMonthImageSelection(it) }
+                                            }
                                         )
-                                        
-                                        selectedMonthImage = existingMonthImage ?: MonthImageSelection(
-                                            month = month,
+                                    }
+                                    selectedImage != null -> {
+                                        MonthSelectionScreen(
                                             imageItem = selectedImage!!,
-                                            amountPerDay = "",
-                                            dayEntries = mutableMapOf()
+                                            onBack = { selectedImage = null },
+                                            onMonthSelected = { month ->
+                                                // Handle both captured and sample images
+                                                val existingMonthImage = paymentDataManager.loadMonthImageSelection(
+                                                    selectedImage!!.imageRes,
+                                                    month
+                                                )
+
+                                                selectedMonthImage = existingMonthImage ?: MonthImageSelection(
+                                                    month = month,
+                                                    imageItem = selectedImage!!,
+                                                    amountPerDay = "",
+                                                    dayEntries = mutableMapOf()
+                                                )
+                                                // Save the selection immediately
+                                                selectedMonthImage?.let { paymentDataManager.saveMonthImageSelection(it) }
+                                                selectedImage = null
+                                            }
                                         )
-                                        
-                                        // Save the selection immediately
-                                        selectedMonthImage?.let { paymentDataManager.saveMonthImageSelection(it) }
-                                        selectedImage = null
                                     }
-                                )
-                            }
-                            else -> {
-                                ImageGrid(
-                                    modifier = Modifier.weight(1f),
-                                    onImageSelected = { imageItem ->
-                                        selectedImage = imageItem
-                                    },
-                                    sampleImages = sampleImages,
-                                    capturedImages = imageItems
-                                )
+                                    else -> {
+                                        ImageGrid(
+                                            modifier = Modifier.weight(1f),
+                                            onImageSelected = { imageItem ->
+                                                selectedImage = imageItem
+                                            },
+                                            sampleImages = sampleImages,
+                                            capturedImages = imageItems
+                                        )
+                                    }
+                                }
                             }
                         }
                     }
@@ -287,11 +311,7 @@ data class ImageItem(
 
 val sampleImages = listOf(
     ImageItem(R.drawable.sample_image1, "Sample 1"),
-    ImageItem(R.drawable.sample_image2, "Sample 2"),
-    ImageItem(R.drawable.sample_image3, "Sample 3"),
-    ImageItem(R.drawable.sample_image4, "Sample 4"),
-    ImageItem(R.drawable.sample_image5, "Sample 5"),
-    ImageItem(R.drawable.sample_image6, "Sample 6")
+    ImageItem(R.drawable.sample_image2, "Sample 2")
 )
 
 data class SelectedImage(
@@ -389,7 +409,7 @@ fun ImageCard(
                     )
                 }
             }
-            
+
             Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = item.title,
@@ -488,7 +508,7 @@ fun MonthCalendar(
                     month = month,
                     year = currentYear,
                     isSelected = month == selectedMonth,
-                    onMonthClick = { 
+                    onMonthClick = {
                         selectedMonth = month
                         onMonthSelected(month)
                     }
@@ -569,8 +589,8 @@ fun MonthImageScreen(
     onAmountPerDayChange: (String) -> Unit
 ) {
     val context = LocalContext.current
-    var amountPerDay by remember(monthImage.amountPerDay) { 
-        mutableStateOf(monthImage.amountPerDay) 
+    var amountPerDay by remember(monthImage.amountPerDay) {
+        mutableStateOf(monthImage.amountPerDay)
     }
     val currentYear = Clock.System.now()
         .toLocalDateTime(TimeZone.currentSystemDefault())
@@ -678,7 +698,7 @@ fun MonthImageScreen(
                 // Amount per day input (smaller)
                 OutlinedTextField(
                     value = amountPerDay,
-                    onValueChange = { 
+                    onValueChange = {
                         amountPerDay = it
                         onAmountPerDayChange(it)
                     },
@@ -691,7 +711,7 @@ fun MonthImageScreen(
                     singleLine = true,
                     textStyle = MaterialTheme.typography.bodyMedium
                 )
-                
+
                 // Totals Column
                 Column(
                     modifier = Modifier.weight(0.6f),
@@ -717,7 +737,7 @@ fun MonthImageScreen(
                         color = MaterialTheme.colorScheme.outlineVariant,
                         thickness = 0.5.dp
                     )
-                    
+
                     // Paid Amount
                     Column(
                         verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -741,7 +761,7 @@ fun MonthImageScreen(
                         color = MaterialTheme.colorScheme.outlineVariant,
                         thickness = 0.5.dp
                     )
-                    
+
                     // Remaining Amount
                     Column(
                         verticalArrangement = Arrangement.spacedBy(2.dp)
@@ -903,7 +923,7 @@ private fun DayCell(
                 ),
                 fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal
             )
-            
+
             if (dayEntry != null) {
                 if (dayEntry.isAbsent) {
                     Text(
@@ -969,11 +989,22 @@ fun DateDetailsScreen(
         4, 6, 9, 11 -> 30
         else -> 31
     }
-    
+
     val totalPossibleAmount = amountPerDay.toIntOrNull()?.times(daysInMonth) ?: 0
-    val totalPaidAmount = monthImage.dayEntries.values.sumOf { it.amountPaid.toIntOrNull() ?: 0 }
-    val absentDaysAmount = monthImage.dayEntries.values.count { it.isAbsent } * (amountPerDay.toIntOrNull() ?: 0)
-    val remainingAmount = totalPossibleAmount - totalPaidAmount - absentDaysAmount
+    val totalPaidAmount = monthImage.dayEntries.values
+        .sumOf { entry ->
+            try {
+                entry.amountPaid.toDoubleOrNull() ?: 0.0
+            } catch (e: NumberFormatException) {
+                0.0
+            }
+        }.toInt().toString()
+
+    val remainingAmount = try {
+        totalPossibleAmount - (totalPaidAmount.toDoubleOrNull() ?: 0.0).toInt()
+    } catch (e: NumberFormatException) {
+        0
+    }
 
     Column(
         modifier = Modifier
@@ -1075,7 +1106,7 @@ fun DateDetailsScreen(
                         enabled = false,
                         singleLine = true
                     )
-                    
+
                     Column(
                         modifier = Modifier
                             .weight(1f)
@@ -1096,9 +1127,9 @@ fun DateDetailsScreen(
                         )
                     }
                 }
-                
+
                 Spacer(modifier = Modifier.height(8.dp))
-                
+
                 // Payment details in a more compact layout
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -1168,7 +1199,7 @@ fun DateDetailsScreen(
         ) {
             Checkbox(
                 checked = isAbsent,
-                onCheckedChange = { isChecked -> 
+                onCheckedChange = { isChecked ->
                     isAbsent = isChecked
                     if (isChecked) {
                         amountPaid = ""
@@ -1239,7 +1270,7 @@ fun MonthSelectionScreen(
     onMonthSelected: (Month) -> Unit
 ) {
     val context = LocalContext.current
-    
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -1314,5 +1345,229 @@ fun MonthSelectionScreen(
 
         // Month Calendar
         MonthCalendar(onMonthSelected = onMonthSelected)
+    }
+}
+
+@Composable
+fun SplashScreen(onSplashComplete: () -> Unit) {
+    var startAnimation by remember { mutableStateOf(false) }
+    val alphaAnim = animateFloatAsState(
+        targetValue = if (startAnimation) 1f else 0f,
+        animationSpec = tween(durationMillis = 1000),
+        label = ""
+    )
+
+    LaunchedEffect(key1 = true) {
+        startAnimation = true
+        delay(2000)
+        onSplashComplete()
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.primary)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer(alpha = alphaAnim.value),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "Briks",
+                style = MaterialTheme.typography.headlineLarge,
+                color = MaterialTheme.colorScheme.onPrimary,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+@Composable
+fun MainScreen(onNavigateToContent: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(32.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Profile Icon
+                Column(
+                    modifier = Modifier
+                        .clickable { /* Handle Profile click */ },
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .padding(8.dp),
+                        elevation = CardDefaults.cardElevation(4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Person,
+                                contentDescription = "Profile",
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Profile",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+
+                // Home Icon
+                Column(
+                    modifier = Modifier
+                        .clickable { onNavigateToContent() },
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Card(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .padding(8.dp),
+                        elevation = CardDefaults.cardElevation(4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.primaryContainer),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Home,
+                                contentDescription = "Home",
+                                modifier = Modifier.size(64.dp),
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Home",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CalendarDayCell(
+    date: LocalDate,
+    isSelected: Boolean,
+    dayEntry: DayEntry?,
+    onDateClick: (LocalDate) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .padding(2.dp)
+            .width(100.dp)
+            .height(100.dp)
+            .clickable { onDateClick(date) },
+        colors = CardDefaults.cardColors(
+            containerColor = when {
+                isSelected -> MaterialTheme.colorScheme.primaryContainer
+                dayEntry?.isAbsent == true -> MaterialTheme.colorScheme.errorContainer
+                dayEntry != null -> MaterialTheme.colorScheme.secondaryContainer
+                else -> MaterialTheme.colorScheme.surface
+            }
+        ),
+        border = BorderStroke(
+            width = if (isSelected) 3.dp else 2.dp,
+            color = if (isSelected)
+                MaterialTheme.colorScheme.primary
+            else
+                MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(5.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            // Date number
+            Text(
+                text = date.dayOfMonth.toString(),
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (isSelected) FontWeight.Light else FontWeight.Normal
+            )
+            
+            // Amount (if paid)
+            if (dayEntry != null && !dayEntry.isAbsent && dayEntry.amountPaid.isNotEmpty()) {
+                Text(
+                    text = dayEntry.amountPaid,
+                    style = MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 5.sp,
+                        letterSpacing = (-1).sp
+                    ),
+                    fontWeight = FontWeight.Normal,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 3.dp),
+                    maxLines = 1,
+                    textAlign = TextAlign.Center,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            
+            // Absent indicator
+            if (dayEntry?.isAbsent == true) {
+                Text(
+                    text = "Absent",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 10.sp
+                    ),
+                    color = MaterialTheme.colorScheme.error,
+                    fontWeight = FontWeight.Normal
+                )
+            }
+        }
+    }
+}
+
+// Update the calendar grid layout
+@Composable
+fun MonthCalendarGrid(
+    currentMonth: Month,
+    currentYear: Int,
+    selectedDate: LocalDate?,
+    dayEntries: Map<Int, DayEntry>,
+    onDateSelected: (LocalDate) -> Unit
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(7),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 2.dp),
+        horizontalArrangement = Arrangement.spacedBy(1.dp)
+    ) {
+        // ... rest of the calendar grid implementation
     }
 }
